@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+import os
+import time
+from pynput.keyboard import Controller, Key
+
+keyboard = Controller()
+
+
+def get_snippet_name():
+
+    with keyboard.pressed(Key.ctrl, Key.shift):
+        keyboard.press(Key.left)
+
+    keyboard.release(Key.left)
+    time.sleep(1)
+
+    return os.popen('xclip -o').read().lower().strip()
+
+
+def get_snippet_file(snippet_name):
+    return os.path.expanduser(f'~/.snippets/{snippet_name}')
+
+
+def get_snippet_text(snippet_name):
+
+    snippet_file = get_snippet_file(snippet_name)
+
+    if os.path.isfile(snippet_file):
+        return os.popen(snippet_file).read()
+
+    snippet_file += '.txt'
+
+    if os.path.isfile(snippet_file):
+        with open(snippet_file) as f:
+            return f.read()
+
+    snippet_text = os.popen(
+        "kdialog --title Snipper " +
+        f"--textinputbox 'Qual deve ser o snippet para \"{snippet_name}\"'"
+    ).read()[:-1]
+    if snippet_text.strip():
+        with open(snippet_file, 'w') as f:
+            f.write(snippet_text)
+        return snippet_text
+
+
+def find_cursor(text):
+    lines = text.split('\n')
+    back_lines = 0
+    back_len = 0
+    for idx, line in enumerate(lines):
+        if '#!#' in line:
+            back_len = len(line.split('#!#')[-1])
+            back_lines = len(lines) - idx - 1
+    return back_lines, back_len
+
+def insert_text(text):
+    back_lines, back_len = find_cursor(text)
+    text = text.replace('#!#', '')
+
+    keyboard.type(text)
+
+    for i in range(back_lines):
+        key_press(Key.up)
+
+    if back_lines: key_press(Key.end)
+
+    for i in range(back_len):
+        key_press(Key.left)
+
+
+def key_press(k):
+    keyboard.press(k)
+    keyboard.release(k)
+
+
+def main():
+    snippet_name = get_snippet_name()
+    snippet_text = get_snippet_text(snippet_name)
+    if snippet_text:
+        insert_text(snippet_text)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
